@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Management.Automation;
 using System.Management.Automation.Language;
@@ -10,12 +11,8 @@ namespace Microsoft.PowerShell.UnixTabCompletion
 {
     public class BashCompleter : CompleterBase
     {
-        private string _completionScript = "/usr/share/bash-completion/bash_completion";
-        public string CompletionScript
-        {
-            get { return _completionScript; }
-            set { _completionScript = value; }
-        }
+        private readonly string _completionScript;
+
         private static readonly string s_resolveCompleterCommandTemplate = string.Join("; ", new []
         {
             "-lc \". {0} 2>/dev/null",
@@ -29,12 +26,13 @@ namespace Microsoft.PowerShell.UnixTabCompletion
 
         public BashCompleter(string bashPath, string completionScript)
         {
+            ArgumentException.ThrowIfNullOrEmpty(bashPath);
+
             _bashPath = bashPath;
-            if (!string.IsNullOrEmpty(completionScript))
-            {
-                _completionScript = completionScript;
-            }
             _commandCompletionFunctions = [];
+            _completionScript = string.IsNullOrEmpty(completionScript)
+                ? "/usr/share/bash-completion/bash_completion"
+                : completionScript;
         }
 
         public override IEnumerable<CompletionResult> CompleteCommand(
@@ -126,6 +124,7 @@ namespace Microsoft.PowerShell.UnixTabCompletion
                 wordToComplete,
                 previousWord);
 
+            File.WriteAllText("/home/daxian/repo/log.txt", completionCommand);
             List<string> completionResults = InvokeBashWithArguments(completionCommand)
                 .Split('\n')
                 .Distinct(StringComparer.Ordinal)
