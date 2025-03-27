@@ -9,7 +9,7 @@ using System.Text;
 
 namespace Microsoft.PowerShell.UnixTabCompletion
 {
-    public class ZshUtilCompleter : IUnixUtilCompleter
+    public class ZshCompleter : CompleterBase
     {
         private static readonly string s_completionScriptPath = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "zcomplete.sh");
 
@@ -17,23 +17,18 @@ namespace Microsoft.PowerShell.UnixTabCompletion
 
         private readonly HashSet<string> _seenCompletions;
 
-        public ZshUtilCompleter(string zshPath)
+        public ZshCompleter(string zshPath)
         {
             _zshPath = zshPath;
             _seenCompletions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         }
 
-        public IEnumerable<string> FindCompletableCommands()
-        {
-            return UnixHelpers.NativeUtilNames;
-        }
-
-        public IEnumerable<CompletionResult> CompleteCommand(
-            string command,
+        public override IEnumerable<CompletionResult> CompleteCommand(
             string wordToComplete,
             CommandAst commandAst,
             int cursorPosition)
         {
+            string command = commandAst.GetCommandName();
             string zshArgs = CreateZshCompletionArgs(command, wordToComplete, commandAst, cursorPosition - commandAst.Extent.StartOffset);
             _seenCompletions.Clear();
             foreach (string result in InvokeWithZsh(zshArgs).Split('\n'))

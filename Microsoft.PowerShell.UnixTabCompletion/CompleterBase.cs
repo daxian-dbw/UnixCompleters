@@ -7,13 +7,16 @@ namespace Microsoft.PowerShell.UnixTabCompletion
     /// <summary>
     /// Provides completions for native Unix commands.
     /// </summary>
-    public interface IUnixUtilCompleter
+    public abstract class CompleterBase
     {
         /// <summary>
         /// Gets the list of commands this completer can generate completions for.
         /// </summary>
         /// <returns>The names of all commands this completer can generate completions for.</returns>
-        IEnumerable<string> FindCompletableCommands();
+        public virtual IEnumerable<string> FindCompletableCommands()
+        {
+            return UnixHelpers.NativeUtilNames;
+        }
 
         /// <summary>
         /// Complete a given Unix command.
@@ -26,16 +29,8 @@ namespace Microsoft.PowerShell.UnixTabCompletion
         /// <param name="commandAst">The whole command AST undergoing completion.</param>
         /// <param name="cursorPosition">The offset of the cursor from the start of input.</param>
         /// <returns>A list of completions for the current word.</returns>
-        IEnumerable<CompletionResult> CompleteCommand(
-            string command,
-            string wordToComplete,
-            CommandAst commandAst,
-            int cursorPosition);
+        public abstract IEnumerable<CompletionResult> CompleteCommand(string wordToComplete, CommandAst commandAst, int cursorPosition);
 
-        public string Name
-        {
-            get { return this.GetType().Name; }
-            private set { }
-        }
+        public virtual string Name => GetType().Name;
     }
 }

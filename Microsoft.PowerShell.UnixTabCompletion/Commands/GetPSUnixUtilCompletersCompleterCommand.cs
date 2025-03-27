@@ -10,7 +10,7 @@ namespace Microsoft.PowerShell.UnixTabCompletion.Commands
     {
         protected override void EndProcessing()
         {
-            WriteObject(CompleterGlobals.UnixUtilCompleter);
+            WriteObject(Completion.Completer);
         }
     }
 }
