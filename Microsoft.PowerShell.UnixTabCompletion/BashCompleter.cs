@@ -43,15 +43,21 @@ namespace Microsoft.PowerShell.UnixTabCompletion
             string command = commandAst.GetCommandName();
             string completerFunction = ResolveCommandCompleterFunction(command);
 
-            int cursorWordIndex = 0;
-            string previousWord = commandAst.CommandElements[0].Extent.Text;
-            for (int i = 1; i < commandAst.CommandElements.Count; i++)
+            if (string.IsNullOrEmpty(completerFunction))
             {
-                IScriptExtent elementExtent = commandAst.CommandElements[i].Extent;
+                yield break;
+            }
+
+            int cursorWordIndex = 0;
+            var elements = commandAst.CommandElements;
+            string previousWord = elements[0].Extent.Text;
+            for (int i = 1; i < elements.Count; i++)
+            {
+                IScriptExtent elementExtent = elements[i].Extent;
 
                 if (cursorPosition < elementExtent.EndColumnNumber)
                 {
-                    previousWord = commandAst.CommandElements[i - 1].Extent.Text;
+                    previousWord = elements[i - 1].Extent.Text;
                     cursorWordIndex = i;
                     break;
                 }
@@ -65,12 +71,12 @@ namespace Microsoft.PowerShell.UnixTabCompletion
 
                 if (cursorPosition < elementExtent.StartColumnNumber)
                 {
-                    previousWord = commandAst.CommandElements[i - 1].Extent.Text;
+                    previousWord = elements[i - 1].Extent.Text;
                     cursorWordIndex = i;
                     break;
                 }
 
-                if (i == commandAst.CommandElements.Count - 1 && cursorPosition > elementExtent.EndColumnNumber)
+                if (i == elements.Count - 1 && cursorPosition > elementExtent.EndColumnNumber)
                 {
                     previousWord = elementExtent.Text;
                     cursorWordIndex = i + 1;
@@ -80,38 +86,35 @@ namespace Microsoft.PowerShell.UnixTabCompletion
 
             string commandLine;
             string bashWordArray;
+            string commandText = commandAst.Extent.Text;
 
             if (cursorWordIndex > 0)
             {
-                commandLine = "'" + commandAst.Extent.Text + "'";
+                commandLine = $"'{commandText}'";
 
                 // Handle a case like '/mnt/c/Program Files'/<TAB> where the slash is outside the string
-                IScriptExtent currentExtent = commandAst.CommandElements[cursorWordIndex].Extent;      // The presumed slash-prefixed string
-                IScriptExtent previousExtent = commandAst.CommandElements[cursorWordIndex - 1].Extent; // The string argument
-                if (currentExtent.Text.StartsWith("/") && currentExtent.StartColumnNumber == previousExtent.EndColumnNumber)
+                IScriptExtent currentExtent = elements[cursorWordIndex].Extent;      // The presumed slash-prefixed string
+                IScriptExtent previousExtent = elements[cursorWordIndex - 1].Extent; // The string argument
+                if (currentExtent.Text.StartsWith('/') && currentExtent.StartColumnNumber == previousExtent.EndColumnNumber)
                 {
                     commandLine = commandLine.Replace(previousExtent.Text + currentExtent.Text, wordToComplete);
-                    bashWordArray = BuildCompWordsBashArrayString(commandAst.Extent.Text, replaceAt: cursorPosition, replacementWord: wordToComplete);
+                    bashWordArray = BuildCompWordsBashArrayString(commandText, replaceAt: cursorPosition, replacementWord: wordToComplete);
                 }
                 else
                 {
-                    bashWordArray = BuildCompWordsBashArrayString(commandAst.Extent.Text);
+                    bashWordArray = BuildCompWordsBashArrayString(commandText);
                 }
             }
-            else if (cursorPosition > commandAst.Extent.Text.Length)
+            else if (cursorPosition > commandText.Length)
             {
                 cursorWordIndex++;
-                commandLine = "'" + commandAst.Extent.Text + " '";
-                bashWordArray = new StringBuilder(64)
-                    .Append("('").Append(commandAst.Extent.Text).Append("' '')")
-                    .ToString();
+                commandLine = $"'{commandText} '";
+                bashWordArray = $"('{commandText}' '')";
             }
             else
             {
-                commandLine = "'" + commandAst.Extent.Text + "'";
-                bashWordArray = new StringBuilder(32)
-                    .Append("('").Append(wordToComplete).Append("')")
-                    .ToString();
+                commandLine = $"'{commandText}'";
+                bashWordArray = $"('{wordToComplete}')";
             }
 
             string completionCommand = BuildCompletionCommand(
@@ -124,11 +127,9 @@ namespace Microsoft.PowerShell.UnixTabCompletion
                 wordToComplete,
                 previousWord);
 
-            File.WriteAllText("/home/daxian/repo/log.txt", completionCommand);
-            List<string> completionResults = InvokeBashWithArguments(completionCommand)
+            List<string> completionResults = [.. InvokeBashWithArguments(completionCommand)
                 .Split('\n')
-                .Distinct(StringComparer.Ordinal)
-                .ToList();
+                .Distinct(StringComparer.Ordinal)];
 
             completionResults.Sort(StringComparer.Ordinal);
 
@@ -147,7 +148,7 @@ namespace Microsoft.PowerShell.UnixTabCompletion
                 string listItemText;
                 if (equalsIndex >= 0)
                 {
-                    completionText = wordToComplete.Substring(0, equalsIndex) + completionResult;
+                    completionText = string.Concat(wordToComplete.AsSpan(0, equalsIndex), completionResult);
                     listItemText = completionResult;
                 }
                 else
@@ -173,13 +174,9 @@ namespace Microsoft.PowerShell.UnixTabCompletion
 
         private string ResolveCommandCompleterFunction(string commandName)
         {
-            if (string.IsNullOrEmpty(commandName))
-            {
-                throw new ArgumentException(nameof(commandName));
-            }
+            ArgumentException.ThrowIfNullOrEmpty(commandName);
 
-            string completerFunction;
-            if (_commandCompletionFunctions.TryGetValue(commandName, out completerFunction))
+            if (_commandCompletionFunctions.TryGetValue(commandName, out string completerFunction))
             {
                 return completerFunction;
             }
@@ -193,16 +190,15 @@ namespace Microsoft.PowerShell.UnixTabCompletion
 
         private string InvokeBashWithArguments(string argumentString)
         {
-            using (var bashProc = new Process())
-            {
-                bashProc.StartInfo.FileName = this._bashPath;
-                bashProc.StartInfo.Arguments = argumentString;
-                bashProc.StartInfo.UseShellExecute = false;
-                bashProc.StartInfo.RedirectStandardOutput = true;
-                bashProc.Start();
+            using var bashProc = new Process();
 
-                return bashProc.StandardOutput.ReadToEnd();
-            }
+            bashProc.StartInfo.FileName = _bashPath;
+            bashProc.StartInfo.Arguments = argumentString;
+            bashProc.StartInfo.UseShellExecute = false;
+            bashProc.StartInfo.RedirectStandardOutput = true;
+            bashProc.Start();
+
+            return bashProc.StandardOutput.ReadToEnd();
         }
 
         private static string EscapeCompletionResult(string completionResult)
@@ -218,7 +214,7 @@ namespace Microsoft.PowerShell.UnixTabCompletion
         }
 
 
-        private string BuildCompWordsBashArrayString(
+        private static string BuildCompWordsBashArrayString(
             string line,
             int replaceAt = -1,
             string replacementWord = null)
@@ -298,8 +294,8 @@ namespace Microsoft.PowerShell.UnixTabCompletion
                 .Append("COMP_POINT=").Append(COMP_POINT).Append("; ")
                 .Append("bind 'set completion-ignore-case on' 2>/dev/null; ")
                 .Append(completionFunction)
-                    .Append(" '").Append(command).Append("'")
-                    .Append(" '").Append(wordToComplete).Append("'")
+                    .Append(" '").Append(command).Append('\'')
+                    .Append(" '").Append(wordToComplete).Append('\'')
                     .Append(" '").Append(previousWord).Append("' 2>/dev/null; ")
                 .Append("IFS=$'\\n'; ")
                 .Append("echo \"\"\"${COMPREPLY[*]}\"\"\"\"")
