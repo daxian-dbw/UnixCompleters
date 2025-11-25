@@ -8,7 +8,7 @@ namespace Microsoft.PowerShell.UnixTabCompletion.Commands
     {
         [ValidateNotNull()]
         [Parameter(Position = 0, Mandatory = true, ParameterSetName = "Completer")]
-        public IUnixUtilCompleter Completer { get; set; }
+        public CompleterBase Completer { get; set; }
 
         [ValidateNotNullOrEmpty()]
         [Parameter(Position = 0, Mandatory = true, ParameterSetName = "Shell")]
@@ -50,11 +50,11 @@ namespace Microsoft.PowerShell.UnixTabCompletion.Commands
                 switch (shellType)
                 {
                     case ShellType.Zsh:
-                        Completer = new ZshUtilCompleter(shellPath);
+                        Completer = new ZshCompleter(shellPath);
                         break;
 
                     case ShellType.Bash:
-                        Completer = new BashUtilCompleter(shellPath, CompletionScript);
+                        Completer = new BashCompleter(shellPath, CompletionScript);
                         break;
 
                     default:
@@ -68,7 +68,7 @@ namespace Microsoft.PowerShell.UnixTabCompletion.Commands
                 }
             }
 
-            CompleterGlobals.UnixUtilCompleter = Completer;
+            Completion.Completer = Completer;
         }
     }
 }

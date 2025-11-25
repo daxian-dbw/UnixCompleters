@@ -36,11 +36,10 @@ $script:OutDir = "${PSScriptRoot}/out"
 $script:ModuleBase = "${PSScriptRoot}/out/${script:ModuleName}"
 $script:OutModuleDir = "${ModuleBase}/${script:ModuleVersion}"
 $script:SrcDir = "$PSScriptRoot/${ModuleName}"
-$script:Framework = 'netstandard2.1'
+$script:Framework = 'net8.0'
 $script:ZshCompleterScriptLocation = "${script:OutModuleDir}/zcomplete.sh"
 
 $script:Artifacts = @{
-    "OnStart.ps1" = "OnStart.ps1"
     "${script:ModuleName}.psd1" = "${script:ModuleName}.psd1"
     "${ModuleName}/bin/$Configuration/${script:Framework}/${ModuleName}.dll" = "${ModuleName}.dll"
     "LICENSE" = "LICENSE.txt"
